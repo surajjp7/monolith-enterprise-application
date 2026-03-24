@@ -9,12 +9,12 @@
     <url>http://maven.apache.org</url>
 
     <properties>
-        <spring.version>[4.3.18,)</spring.version>
+        <spring.version>5.3.30</spring.version>
         <junit.version>4.13.1</junit.version>
-        <java.version>1.7</java.version>
+        <java.version>1.8</java.version>
         <mockito.version>1.10.19</mockito.version>
         <powermock.version>1.7.3</powermock.version>
-        <jetty.version>[9.4.11.v20180605,)</jetty.version>
+        <jetty.version>9.4.53.v20231009</jetty.version>
         <jaxrs.version>2.0</jaxrs.version>
         <bean.validation.version>2.0.0.Final</bean.validation.version>
         <expression.language.version>3.0.0</expression.language.version>
@@ -25,14 +25,14 @@
         <hyperSql.version>2.3.2</hyperSql.version>
         <h2.version>2.1.210</h2.version>
         <derby.version>10.11.1.1</derby.version>
-        <mysql.version>8.0.16</mysql.version>
-        <slf4j.api.version>1.7.25</slf4j.api.version>
-        <hibernate.core.version>5.4.24.Final</hibernate.core.version>
+        <mysql.version>8.0.33</mysql.version>
+        <slf4j.api.version>1.7.36</slf4j.api.version>
+        <hibernate.core.version>5.6.15.Final</hibernate.core.version>
         <hibernate.entitymanager.version>4.3.10.Final</hibernate.entitymanager.version>
         <hibernate.c3po.version>4.3.10.Final</hibernate.c3po.version>
         <joda.time.version>2.9.9</joda.time.version>
         <ehcache.version>2.9.1</ehcache.version>
-        <activemq-spring.version>5.10.0</activemq-spring.version>
+        <activemq-spring.version>5.15.15</activemq-spring.version>
         <quartz.version>2.3.2</quartz.version>
     </properties>
 
@@ -45,9 +45,21 @@
         </dependency>
 
         <dependency>
+            <groupId>javax.jms</groupId>
+            <artifactId>javax.jms-api</artifactId>
+            <version>2.0.1</version>
+        </dependency>
+
+        <dependency>
             <groupId>javax.validation</groupId>
             <artifactId>validation-api</artifactId>
             <version>${bean.validation.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.activemq</groupId>
+            <artifactId>activemq-client</artifactId>
+            <version>5.15.15</version>
         </dependency>
 
         <dependency>
@@ -156,7 +168,7 @@
             <version>${jackson.databind.version}</version>
         </dependency>
 
-        <dependency>
+        <!--<dependency>
             <groupId>org.hsqldb</groupId>
             <artifactId>hsqldb</artifactId>
             <version>${hyperSql.version}</version>
@@ -172,12 +184,18 @@
             <groupId>org.apache.derby</groupId>
             <artifactId>derby</artifactId>
             <version>${derby.version}</version>
-        </dependency>
+        </dependency>-->
 
         <dependency>
             <groupId>mysql</groupId>
             <artifactId>mysql-connector-java</artifactId>
             <version>${mysql.version}</version>
+        </dependency>
+
+        <dependency>
+            <groupId>ch.qos.logback</groupId>
+            <artifactId>logback-classic</artifactId>
+            <version>1.2.12</version>
         </dependency>
 
         <dependency>
@@ -187,12 +205,18 @@
         </dependency>
 
         <dependency>
+            <groupId>org.slf4j</groupId>
+            <artifactId>slf4j-simple</artifactId>
+            <version>${slf4j.api.version}</version>
+        </dependency>
+
+        <dependency>
             <groupId>org.hibernate</groupId>
             <artifactId>hibernate-core</artifactId>
             <version>${hibernate.core.version}</version>
         </dependency>
 
-        <dependency>
+        <!--<dependency>
             <groupId>org.hibernate</groupId>
             <artifactId>hibernate-entitymanager</artifactId>
             <version>${hibernate.entitymanager.version}</version>
@@ -202,7 +226,7 @@
             <groupId>org.hibernate</groupId>
             <artifactId>hibernate-c3p0</artifactId>
             <version>${hibernate.c3po.version}</version>
-        </dependency>
+        </dependency>-->
 
         <dependency>
             <groupId>joda-time</groupId>
@@ -248,6 +272,12 @@
             <version>${spring.version}</version>
         </dependency>
 
+        <dependency>
+            <groupId>org.liquibase</groupId>
+            <artifactId>liquibase-core</artifactId>
+            <version>4.23.0</version>
+        </dependency>
+
     </dependencies>
 
     <build>
@@ -255,7 +285,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-compiler-plugin</artifactId>
-                <version>3.1</version>
+                <version>3.8.1</version>
                 <configuration>
                     <source>${java.version}</source>
                     <target>${java.version}</target>
@@ -279,7 +309,7 @@
             <plugin>
                 <groupId>org.apache.maven.plugins</groupId>
                 <artifactId>maven-shade-plugin</artifactId>
-                <version>3.1.0</version>
+                <version>3.2.4</version>
                 <configuration>
                     <createDependencyReducedPom>true</createDependencyReducedPom>
                     <filters>
@@ -324,7 +354,7 @@
             <plugin>
                 <groupId>org.liquibase</groupId>
                 <artifactId>liquibase-maven-plugin</artifactId>
-                <version>3.0.5</version>
+                <version>4.23.0</version>
                 <configuration>
                     <propertyFile>src/main/resources/db/liquibase.properties</propertyFile>
                 </configuration>

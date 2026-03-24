@@ -16,6 +16,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.RequestMethod;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
 
@@ -28,29 +31,29 @@ public class ProjectRestEndpoint {
     @Autowired
     private ProjectService projectService;
 
-    @RequestMapping("/{projectId}")
+    @RequestMapping(value = "/{projectId}", method = RequestMethod.GET)
     public ResponseEntity<ProjectResource> getProject(@PathVariable Integer projectId) {
         Project project = projectService.getProject(projectId);
         ProjectResource projectResource = ProjectResourceMapper.mapToProjectResource(project);
         return ResponseEntity.ok(projectResource);
     }
 
-    @RequestMapping("/create")
-    public ResponseEntity<?> createProject(@Valid ProjectResource projectResource) {
+    @RequestMapping(value = "/create", method = RequestMethod.POST)
+    public ResponseEntity<?> createProject(@RequestBody @Valid ProjectResource projectResource) {
         Project project = ProjectResourceMapper.mapToProject(projectResource);
         projectService.createProject(project);
         return ResponseEntity.ok().build();
     }
 
-    @RequestMapping("/{projectId}/delete")
-    public void deleteProject(@PathVariable Integer projectId) {
+    @RequestMapping(value = "/{projectId}/delete", method = RequestMethod.DELETE)
+    public ResponseEntity<?> deleteProject(@PathVariable Integer projectId) {
         projectService.deleteProject(projectId);
+        return ResponseEntity.ok().build();
     }
 
-    @RequestMapping("/update}")
-    public ResponseEntity<?> updateProject(ProjectResource projectResource) {
-        Project project = ProjectResourceMapper.mapToProject(projectResource);
-        projectService.updateProject(project);
+    @RequestMapping(value = "/update", method = RequestMethod.PUT)
+    public ResponseEntity<?> updateProject(@RequestBody ProjectResource projectResource) {
+        projectService.updateProject(ProjectResourceMapper.mapToProject(projectResource));
         return ResponseEntity.ok().build();
     }
 }

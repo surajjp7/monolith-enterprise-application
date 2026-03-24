@@ -22,14 +22,14 @@ stages:
 
           # Run Liquibase
           - script: |
-              echo "Running Database Migration..."
+              echo "Running Database"
 
               mvn liquibase:update \
                 -Dliquibase.url=jdbc:mysql://mysql26.mysql.database.azure.com:3306/snowman?useSSL=true\&requireSSL=true \
-                -Dliquibase.username=suraj@mysql26 \
-                -Dliquibase.password=$(DB_PASSWORD)
+                -Dliquibase.username=${db-username} \
+                -Dliquibase.password=${db-password}
 
-            displayName: Run Liquibase
+            displayName: Run Database
 
           # Confirmation step (separate step)
           - script: |

@@ -1,0 +1,191 @@
+trigger: none
+
+variables:
+- group: Kv-secrets  
+
+pool:
+  name: vm-agent
+
+# =========================
+# Stage 1: Build Java Artifact
+# =========================
+stages:
+- stage: Build
+  displayName: Build Artifact
+  jobs:
+    - job: MavenBuild
+      steps:
+        - script: |
+            echo "Building Java project..."
+            mvn clean package -DskipTests -Dliquibase.skip=true
+          displayName: Maven Build
+
+        - task: PublishBuildArtifacts@1
+          inputs:
+            pathToPublish: 'target'
+            artifactName: 'target'
+          displayName: Publish Artifacts
+
+# =========================
+# Stage 2: SonarQube Analysis
+# =========================
+- stage: SonarQube
+  displayName: SonarQube Analysis
+  dependsOn: Build
+  jobs:
+    - job: SonarAnalysis
+      displayName: SonarAnalysis Job
+      steps:
+
+        # Step 1: Download build artifacts (if needed)
+        - task: DownloadBuildArtifacts@0
+          inputs:
+            artifactName: 'target'
+            downloadPath: '$(System.DefaultWorkingDirectory)'
+          displayName: Download Build Artifacts
+
+        # Step 2: Run SonarQube analysis
+        - script: |
+            echo "Running SonarQube Analysis..."
+            
+            # Switch to Java 17 for Sonar
+            export JAVA_HOME=/usr/lib/jvm/java-17-openjdk-amd64
+            export PATH=$JAVA_HOME/bin:$PATH
+            java -version
+
+            # Run Maven Sonar plugin
+            mvn sonar:sonar \
+              -Dsonar.projectKey=snowman-app \
+              -Dsonar.host.url=http://20.197.61.229:9000/ \
+              -Dsonar.login=$(sonarqube-token) \
+              -Dsonar.java.binaries=target/classes
+          displayName: SonarQube Analysis
+
+# =========================
+# Stage 3: Docker Build & Push
+# =========================
+- stage: DockerBuild
+  displayName: Docker Build & Push
+  dependsOn: SonarQube
+  jobs:
+    - job: BuildDockerImage
+      displayName: Docker Build & Push Job
+      steps:
+        # Step 1: Download the build artifact from the Build stage
+        - task: DownloadBuildArtifacts@0
+          inputs:
+            artifactName: 'target'
+            downloadPath: '$(System.DefaultWorkingDirectory)'
+          displayName: Download Build Artifacts
+
+        # Step 2: Fetch ACR credentials from Key Vault
+        - task: AzureKeyVault@2
+          inputs:
+            azureSubscription: 'Ado-demo'
+            KeyVaultName: 'Ado-Key'
+            SecretsFilter: 'spappId,sppassword,sptenant'
+          displayName: Fetch ACR Secrets
+
+        # Step 3: Login To ACR
+        - script: |
+            echo "Login to Azure via Service Principal"
+            az login --service-principal -u "$(spappId)" -p "$(sppassword)" --tenant "$(sptenant)"
+            az acr login --name snowman2026
+          displayName: Login to ACR
+
+        # Step 4: Remove old images
+        - script: |
+            docker rmi -f snowman2026.azurecr.io/snowman-app:latest || echo "No existing latest image"
+          displayName: Remove Old Docker Images
+
+        # Step 5: Build and push Docker image
+        - task: Docker@2
+          displayName: Build and Push Docker Image
+          inputs:
+            command: buildAndPush
+            repository: 'snowman-app'
+            dockerfile: '$(Build.SourcesDirectory)/Dockerfile'
+            buildContext: '$(System.DefaultWorkingDirectory)/target'
+            containerRegistry: 'ACR'
+            tags: |
+              latest
+
+# =========================
+# Stage 4: Database
+# =========================
+- stage: DeployDB
+  displayName: Database Connection
+  dependsOn: DockerBuild
+  jobs:
+    - job: Liquibase
+      displayName: Liquibase Connection Job
+      steps:
+        - task: AzureKeyVault@2
+          displayName: Fetch DB Secrets
+          inputs:
+            azureSubscription: 'Ado-demo'
+            KeyVaultName: 'Ado-Key'
+            SecretsFilter: 'dbname,dbuser,dbpassword'
+
+        - script: |
+            echo "Running DB Connection"
+            mvn liquibase:update \
+              -Dliquibase.url="jdbc:mysql://mysql26.mysql.database.azure.com:3306/$(dbname)?useSSL=true&requireSSL=true" \
+              -Dliquibase.username=$(dbuser) \
+              -Dliquibase.password=$(dbpassword) \
+              -Dliquibase.changeLogFile=src/main/resources/db/liquibase-changelog-schema.xml \
+              -Dliquibase.verbose=true
+          displayName: Run Liquibase Connection
+
+# =========================
+# Stage 5: Deploy
+# =========================
+- stage: DeployAppToVM
+  displayName: Deploy Application to VM
+  dependsOn: DeployDB
+  condition: succeeded()
+  jobs:
+  - job: DeployVMJob
+    displayName: Deploy Docker Container on VM
+    steps:
+    - task: AzureKeyVault@2
+      inputs:
+        azureSubscription: 'Ado-demo'
+        KeyVaultName: 'Ado-Key'
+        SecretsFilter: 'dbpassword,spappId,sppassword,sptenant,dbname,dbuser'
+        RunAsPreJob: true
+      displayName: Fetch Secrets from Key Vault
+
+    - task: SSH@0
+      displayName: Deploy Docker Container on VM
+      inputs:
+        sshEndpoint: 'VM-SSH-Connection'
+        runOptions: inline
+        inline: |
+          
+          #echo "Login to ACR"
+          #echo $(acrpassword) | docker login snowman2026.azurecr.io -u $(acruser) --password-stdin
+          az login --service-principal -u $(spappId) -p $(sppassword) --tenant $(sptenant)
+          az acr login --name snowman2026
+
+          echo "Pull latest image"
+          docker pull snowman2026.azurecr.io/snowman-app:latest
+
+
+          echo "Stop old container"
+          docker stop snowman || true
+          docker rm snowman || true
+
+          echo "Running new container"
+          docker run -d --name snowman \
+            -e DB_NAME=$(dbname) \
+            -e DB_USERNAME=$(dbuser) \
+            -e DB_PASSWORD=$(dbpassword) \
+            -e DB_URL=jdbc:mysql://mysql26.mysql.database.azure.com:3306/$(dbname)?useSSL=true\&requireSSL=true \
+            -p 8090:8090 \
+             snowman2026.azurecr.io/snowman-app:latest
+            #-e JMS_BROKER_URL=tcp://20.197.61.229:61616 \
+             #   -p 80:8080 \
+              #  snowman2026.azurecr.io/snowman-app:latest
+                
+          echo "Application deployed successfully"

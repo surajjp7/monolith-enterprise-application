@@ -16,7 +16,7 @@ stages:
     - job: MavenBuild
       steps:
         - script: |
-            echo "Building Java project..."
+            echo "Building Java project"
             mvn clean package -DskipTests -Dliquibase.skip=true
           displayName: Maven Build
 
@@ -37,7 +37,7 @@ stages:
       displayName: SonarAnalysis Job
       steps:
 
-        # Step 1: Download build artifacts (if needed)
+        # Step 1: Download build artifacts
         - task: DownloadBuildArtifacts@0
           inputs:
             artifactName: 'target'
